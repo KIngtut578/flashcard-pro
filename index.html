@@ -18,7 +18,7 @@
     </style>
 </head>
 <body>
-    
+
     <h1>Quizlet Clone</h1>
 
     <div class="card-box" onclick="flip()">
@@ -41,71 +41,128 @@
         <button class="btn btn-add" onclick="addNew()">Add to Deck</button>
     </div>
 
+   
+
 <button class="btn" style="background: red; margin-top: 20px;" onclick="clearDeck()">Clear Everything</button>
+
+    <button class="btn" style="background: #8b5cf6; margin-top: 10px;" onclick="createNewSet()">
+    + Create New Study Set
+</button>
+
+  <script>
+    // 1. Data & State
+    let allDecks = JSON.parse(localStorage.getItem('myQuizletDeck')) || {};
+    let currentDeckName = null;
+    let index = 0;
+
+    // 2. Elements
+    const card = document.getElementById('cardElement');
+    const front = document.getElementById('frontText');
+    const back = document.getElementById('backText');
+    const counter = document.getElementById('counter');
     
-    <script>
-        // Data
-        let deck = JSON.parse(localStorage.getItem('myQuizletDeck')) || [
-    { t: "Example Term", d: "Example Definition" }
-];
-        let index = 0;
+    // Create the dropdown and put it on the page
+    const deckSelect = document.createElement('select');
+    deckSelect.style.margin = "10px";
+    document.body.insertBefore(deckSelect, document.querySelector('h1').nextSibling);
+    deckSelect.onchange = (e) => { currentDeckName = e.target.value; index = 0; updateUI(); };
 
-        // Elements
-        const card = document.getElementById('cardElement');
-        const front = document.getElementById('frontText');
-        const back = document.getElementById('backText');
-        const counter = document.getElementById('counter');
+    // 3. Functions (Keep these SEPARATE, not inside each other)
+    
+    function updateUI() {
+        renderDropdown(); // Keep the list of sets updated
 
-        function updateUI() {
-            card.classList.remove('is-flipped');
+        if (!currentDeckName) {
+            front.innerText = "Select a set to begin";
+            back.innerText = "Click the dropdown or create a new set below!";
+            counter.innerText = "0 / 0";
+            return; 
+        }
+
+        let deck = allDecks[currentDeckName];
+        card.classList.remove('is-flipped');
+        
+        if (deck && deck.length > 0) {
             front.innerText = deck[index].t;
             back.innerText = deck[index].d;
             counter.innerText = `${index + 1} / ${deck.length}`;
         }
-
-        function flip() {
-            card.classList.toggle('is-flipped');
-        }
-
-        function next() {
-            if (index < deck.length - 1) { index++; updateUI(); }
-        }
-
-        function prev() {
-            if (index > 0) { index--; updateUI(); }
-        }
-
-       function addNew() {
-    const termVal = document.getElementById('inTerm').value;
-    const defVal = document.getElementById('inDef').value;
-
-    if (!termVal || !defVal) return;
-
-    deck.push({ t: termVal, d: defVal });
-    
-    // --- THIS IS THE KEY ADDITION ---
-    saveToStorage(); 
-    // --------------------------------
-
-    document.getElementById('inTerm').value = "";
-    document.getElementById('inDef').value = "";
-    index = deck.length - 1;
-    updateUI();
-}
-        // Run once on load
-        updateUI();
-
-        function saveToStorage() {
-    localStorage.setItem('myQuizletDeck', JSON.stringify(deck));
-}
-
-function clearDeck() {
-    if(confirm("Are you sure? This deletes everything!")) {
-        localStorage.removeItem('myQuizletDeck');
-        location.reload(); // Refresh the page to reset
     }
-}
 
-    </script>
+    function renderDropdown() {
+        deckSelect.innerHTML = "";
+        let placeholder = document.createElement('option');
+        placeholder.innerText = "-- Choose a Set --";
+        placeholder.selected = (currentDeckName === null);
+        placeholder.disabled = true;
+        deckSelect.appendChild(placeholder);
+
+        Object.keys(allDecks).forEach(name => {
+            let opt = document.createElement('option');
+            opt.value = name;
+            opt.innerText = name;
+            if(name === currentDeckName) opt.selected = true;
+            deckSelect.appendChild(opt);
+        });
+    }
+
+    function createNewSet() {
+        const setName = prompt("What is the name of this new set? (e.g., Spanish)");
+        if (setName && !allDecks[setName]) {
+            allDecks[setName] = [{ t: "New Term", d: "New Definition" }];
+            currentDeckName = setName;
+            index = 0;
+            saveToStorage();
+            updateUI();
+        } else if (allDecks[setName]) {
+            alert("That set already exists!");
+        }
+    }
+
+    function addNew() {
+        if (!currentDeckName) {
+            alert("Please select or create a set first!");
+            return;
+        }
+        const termVal = document.getElementById('inTerm').value;
+        const defVal = document.getElementById('inDef').value;
+
+        if (!termVal || !defVal) return;
+
+        allDecks[currentDeckName].push({ t: termVal, d: defVal });
+        saveToStorage(); 
+
+        document.getElementById('inTerm').value = "";
+        document.getElementById('inDef').value = "";
+        index = allDecks[currentDeckName].length - 1;
+        updateUI();
+    }
+
+    function flip() { card.classList.toggle('is-flipped'); }
+
+    function next() {
+        if (!currentDeckName) return;
+        let deck = allDecks[currentDeckName];
+        if (index < deck.length - 1) { index++; updateUI(); }
+    }
+
+    function prev() {
+        if (index > 0) { index--; updateUI(); }
+    }
+
+    function saveToStorage() {
+        localStorage.setItem('myQuizletDeck', JSON.stringify(allDecks));
+    }
+
+    function clearDeck() {
+        if(confirm("Are you sure? This deletes everything!")) {
+            localStorage.removeItem('myQuizletDeck');
+            location.reload(); 
+        }
+    }
+
+    // Start the app
+    updateUI();
+</script>
 </body>
 </html>
