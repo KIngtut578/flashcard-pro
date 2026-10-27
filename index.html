@@ -2,167 +2,678 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Flashcard Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Pro - Interactive Study Suite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
-        .card-box { width: 400px; height: 250px; perspective: 1000px; cursor: pointer; margin-bottom: 20px; }
-        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
-        .is-flipped { transform: rotateY(180deg); }
-        .front, .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-size: 22px; padding: 20px; text-align: center; box-sizing: border-box; }
-        .front { background: white; border: 2px solid #3b82f6; }
-        .back { background: #3b82f6; color: white; transform: rotateY(180deg); }
-        .btn { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; background: #3b82f6; color: white; font-weight: bold; }
-        .btn-add { background: #10b981; width: 100%; margin-top: 10px; }
-        .form-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 360px; margin-top: 30px; }
-        input, textarea { width: 100%; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Perspective and 3D Flip Effects */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        /* Glassmorphism Styles */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
 
-    <h1>Quizlet Clone</h1>
+    <!-- Toast Notification Overlay -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <div class="card-box" onclick="flip()">
-        <div class="card-inner" id="cardElement">
-            <div class="front" id="frontText">Term goes here</div>
-            <div class="back" id="backText">Definition goes here</div>
+    <!-- Confirmation Modal -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-11/12 transform scale-95 transition-transform duration-200 border border-slate-100" id="modalBox">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-600 mb-4 mx-auto" id="modalIcon">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 text-center mb-2" id="modalTitle">Are you sure?</h3>
+            <p class="text-sm text-slate-600 text-center mb-6" id="modalMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="modalCancelBtn" class="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                <button id="modalConfirmBtn" class="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-red-500/20">Confirm</button>
+            </div>
         </div>
     </div>
 
-    <div>
-        <button class="btn" onclick="prev()">Back</button>
-        <span id="counter">1 / 1</span>
-        <button class="btn" onclick="next()">Next</button>
+    <!-- Prompt Modal for New Deck -->
+    <div id="promptModalOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-11/12 border border-slate-100">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 mb-4 mx-auto">
+                <i class="fa-solid fa-folder-plus text-xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 text-center mb-2">Create New Study Set</h3>
+            <p class="text-sm text-slate-500 text-center mb-4">Enter a title for your new flashcard collection.</p>
+            <input type="text" id="promptInput" placeholder="e.g. Biology 101, French Vocab..." class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-800 placeholder-slate-400 mb-6 text-sm">
+            <div class="flex gap-3">
+                <button id="promptCancelBtn" class="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                <button id="promptConfirmBtn" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-indigo-500/20">Create Set</button>
+            </div>
+        </div>
     </div>
 
-    <div class="form-container">
-        <h3>Add New Card</h3>
-        <input type="text" id="inTerm" placeholder="Term (e.g. HTML)">
-        <textarea id="inDef" placeholder="Definition"></textarea>
-        <button class="btn btn-add" onclick="addNew()">Add to Deck</button>
-    </div>
+    <!-- Navigation Header -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white p-2.5 rounded-xl shadow-md shadow-indigo-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-layer-group text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Flashcard Pro</h1>
+                    <p class="text-xs text-slate-400 font-medium">Smart Interactive Learning</p>
+                </div>
+            </div>
 
-   
+            <!-- Set Selector Selector & Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <div class="relative">
+                    <select id="deckSelect" class="bg-slate-100 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer hover:bg-slate-200/60 transition-colors">
+                        <!-- Options generated dynamically -->
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                </div>
 
-<button class="btn" style="background: red; margin-top: 20px;" onclick="clearDeck()">Clear Everything</button>
+                <button onclick="openCreateSetModal()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span class="hidden sm:inline">New Set</span>
+                </button>
 
-    <button class="btn" style="background: #8b5cf6; margin-top: 10px;" onclick="createNewSet()">
-    + Create New Study Set
-</button>
+                <button onclick="confirmDeleteCurrentDeck()" title="Delete Current Study Set" class="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                    <i class="fa-regular fa-trash-can text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
 
-  <script>
-    // 1. Data & State
-    let allDecks = JSON.parse(localStorage.getItem('myQuizletDeck')) || {};
-    let currentDeckName = null;
-    let index = 0;
-
-    // 2. Elements
-    const card = document.getElementById('cardElement');
-    const front = document.getElementById('frontText');
-    const back = document.getElementById('backText');
-    const counter = document.getElementById('counter');
-    
-    // Create the dropdown and put it on the page
-    const deckSelect = document.createElement('select');
-    deckSelect.style.margin = "10px";
-    document.body.insertBefore(deckSelect, document.querySelector('h1').nextSibling);
-    deckSelect.onchange = (e) => { currentDeckName = e.target.value; index = 0; updateUI(); };
-
-    // 3. Functions (Keep these SEPARATE, not inside each other)
-    
-    function updateUI() {
-        renderDropdown(); // Keep the list of sets updated
-
-        if (!currentDeckName) {
-            front.innerText = "Select a set to begin";
-            back.innerText = "Click the dropdown or create a new set below!";
-            counter.innerText = "0 / 0";
-            return; 
-        }
-
-        let deck = allDecks[currentDeckName];
-        card.classList.remove('is-flipped');
+    <!-- Main Content Container -->
+    <main class="max-w-4xl mx-auto px-4 py-8 w-full flex-grow flex flex-col items-center">
         
-        if (deck && deck.length > 0) {
-            front.innerText = deck[index].t;
-            back.innerText = deck[index].d;
-            counter.innerText = `${index + 1} / ${deck.length}`;
-        }
-    }
+        <!-- Controls Toolbar Above Card -->
+        <div class="w-full max-w-xl flex items-center justify-between mb-4 px-2">
+            <span id="counter" class="text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-200/60 px-3 py-1 rounded-full">
+                0 / 0
+            </span>
+            
+            <div class="flex items-center gap-2">
+                <button id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle Deck" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                    <i class="fa-solid fa-shuffle text-sm"></i>
+                </button>
+                <button onclick="resetCardState()" title="Reset View" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                    <i class="fa-solid fa-rotate-right text-sm"></i>
+                </button>
+            </div>
+        </div>
 
-    function renderDropdown() {
-        deckSelect.innerHTML = "";
-        let placeholder = document.createElement('option');
-        placeholder.innerText = "-- Choose a Set --";
-        placeholder.selected = (currentDeckName === null);
-        placeholder.disabled = true;
-        deckSelect.appendChild(placeholder);
+        <!-- 3D Flip Card Container -->
+        <div class="w-full max-w-xl h-80 sm:h-96 perspective-1000 mb-6 group cursor-pointer" onclick="flipCard()">
+            <div id="cardElement" class="relative w-full h-full transform-style-3d transition-transform duration-500 ease-out shadow-xl rounded-3xl">
+                
+                <!-- Front Side -->
+                <div class="absolute inset-0 w-full h-full backface-hidden bg-white border border-slate-100 rounded-3xl p-8 flex flex-col justify-between items-center text-center select-none shadow-sm group-hover:shadow-indigo-500/10 transition-shadow">
+                    <div class="w-full flex justify-between items-center text-xs font-medium text-slate-400 uppercase tracking-wider">
+                        <span><i class="fa-regular fa-lightbulb mr-1.5 text-amber-500"></i> Term</span>
+                        <span class="text-slate-300">Click or Space to flip</span>
+                    </div>
+                    
+                    <div class="my-auto px-4">
+                        <h2 id="frontText" class="text-2xl sm:text-3xl font-bold text-slate-800 leading-relaxed">Select a study set</h2>
+                    </div>
 
-        Object.keys(allDecks).forEach(name => {
-            let opt = document.createElement('option');
-            opt.value = name;
-            opt.innerText = name;
-            if(name === currentDeckName) opt.selected = true;
-            deckSelect.appendChild(opt);
-        });
-    }
+                    <div class="text-slate-300 text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate text-indigo-400"></i>
+                        <span>Click card to see definition</span>
+                    </div>
+                </div>
 
-    function createNewSet() {
-        const setName = prompt("What is the name of this new set? (e.g., Spanish)");
-        if (setName && !allDecks[setName]) {
-            allDecks[setName] = [{ t: "New Term", d: "New Definition" }];
-            currentDeckName = setName;
+                <!-- Back Side -->
+                <div class="absolute inset-0 w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white rounded-3xl p-8 flex flex-col justify-between items-center text-center select-none shadow-lg">
+                    <div class="w-full flex justify-between items-center text-xs font-medium text-indigo-200 uppercase tracking-wider">
+                        <span><i class="fa-solid fa-book-open mr-1.5 text-indigo-300"></i> Definition</span>
+                        <span class="text-indigo-300/80">Click or Space to flip</span>
+                    </div>
+
+                    <div class="my-auto px-4 overflow-y-auto max-h-56">
+                        <p id="backText" class="text-lg sm:text-2xl font-medium leading-relaxed">Choose a set from the header or create a new set to begin studying.</p>
+                    </div>
+
+                    <div class="text-indigo-200/70 text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-check text-emerald-400"></i>
+                        <span>Definition view</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Navigation Controls -->
+        <div class="flex items-center gap-4 mb-10 w-full max-w-xl justify-center">
+            <button onclick="prevCard()" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-semibold rounded-2xl hover:bg-slate-50 active:bg-slate-100 transition-all shadow-sm hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed" id="prevBtn">
+                <i class="fa-solid fa-arrow-left text-xs"></i>
+                <span>Previous</span>
+            </button>
+
+            <button onclick="deleteCurrentCard()" title="Delete Card" class="p-3 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 rounded-2xl transition-all shadow-sm">
+                <i class="fa-regular fa-trash-can"></i>
+            </button>
+
+            <button onclick="nextCard()" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-2xl hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-md shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed" id="nextBtn">
+                <span>Next</span>
+                <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+        </div>
+
+        <!-- Add New Card Form Section -->
+        <div class="w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Add New Flashcard</h3>
+                    <p class="text-xs text-slate-400">Expand your active study set</p>
+                </div>
+                <div class="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl text-sm">
+                    <i class="fa-solid fa-plus-minus"></i>
+                </div>
+            </div>
+
+            <form onsubmit="addNewCard(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Term</label>
+                    <input type="text" id="inTerm" placeholder="e.g. Polymorphism" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-800 placeholder-slate-400 bg-slate-50/50 focus:bg-white transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Definition</label>
+                    <textarea id="inDef" rows="3" placeholder="e.g. The provision of a single interface to entities of different types..." required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-slate-800 placeholder-slate-400 bg-slate-50/50 focus:bg-white transition-all resize-none"></textarea>
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-circle-plus"></i>
+                    <span>Add to Deck</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Global Action Controls -->
+        <div class="mt-8 flex flex-wrap justify-center gap-3 w-full max-w-xl">
+            <button onclick="confirmResetDefaults()" class="text-xs font-medium text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg hover:bg-slate-200/50 transition-colors">
+                <i class="fa-solid fa-rotate mr-1"></i> Reset Starter Decks
+            </button>
+            <button onclick="confirmClearAll()" class="text-xs font-medium text-red-500 hover:text-red-700 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
+                <i class="fa-solid fa-trash-arrow-up mr-1"></i> Clear All Saved Data
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-12">
+        <div class="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>Flashcard Pro &copy; 2026 &bull; Interactive Study Tool</span>
+            <span class="flex items-center gap-3">
+                <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-500"><kbd>←</kbd> <kbd>→</kbd> Navigate</span>
+                <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-500"><kbd>Space</kbd> Flip</span>
+            </span>
+        </div>
+    </footer>
+
+    <script>
+        // Default Starter Decks
+        const DEFAULT_DECKS = {
+            "Web Development Essentials": [
+                { t: "HTML", d: "HyperText Markup Language - The standard markup language for creating web pages." },
+                { t: "CSS", d: "Cascading Style Sheets - Used for describing the presentation and styling of a document written in HTML." },
+                { t: "JavaScript", d: "A high-level, lightweight, compiled or interpreted programming language used for interactive web applications." },
+                { t: "API", d: "Application Programming Interface - A set of functions and procedures allowing the creation of applications that access features of an OS, application, or service." },
+                { t: "DOM", d: "Document Object Model - A programming interface for web documents that represents the page so programs can change document structure, style, and content." }
+            ],
+            "Spanish Vocabulary": [
+                { t: "Hola", d: "Hello" },
+                { t: "Gracias", d: "Thank you" },
+                { t: "Por favor", d: "Please" },
+                { t: "Buenos días", d: "Good morning" },
+                { t: "Hasta luego", d: "See you later" }
+            ]
+        };
+
+        // Application State Variables
+        let allDecks = {};
+        let currentDeckName = null;
+        let index = 0;
+        let isFlipped = false;
+        let isShuffled = false;
+        let activeOrder = []; // Stores indices for original or shuffled order
+
+        // DOM Elements
+        const cardElement = document.getElementById('cardElement');
+        const frontText = document.getElementById('frontText');
+        const backText = document.getElementById('backText');
+        const counter = document.getElementById('counter');
+        const deckSelect = document.getElementById('deckSelect');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+
+        // Modal Action Handlers
+        let pendingModalAction = null;
+
+        // Initialize Application
+        window.onload = () => {
+            loadStorage();
+            setupKeyListeners();
+        };
+
+        // Data Storage Management
+        function loadStorage() {
+            const stored = localStorage.getItem('myFlashcardProDecks');
+            if (stored) {
+                try {
+                    allDecks = JSON.parse(stored);
+                } catch (e) {
+                    allDecks = { ...DEFAULT_DECKS };
+                }
+            } else {
+                allDecks = { ...DEFAULT_DECKS };
+                saveStorage();
+            }
+
+            const keys = Object.keys(allDecks);
+            if (keys.length > 0) {
+                currentDeckName = localStorage.getItem('myFlashcardProActiveDeck') || keys[0];
+                if (!allDecks[currentDeckName]) currentDeckName = keys[0];
+            } else {
+                currentDeckName = null;
+            }
+
             index = 0;
-            saveToStorage();
+            resetDeckOrder();
             updateUI();
-        } else if (allDecks[setName]) {
-            alert("That set already exists!");
         }
-    }
 
-    function addNew() {
-        if (!currentDeckName) {
-            alert("Please select or create a set first!");
-            return;
+        function saveStorage() {
+            localStorage.setItem('myFlashcardProDecks', JSON.stringify(allDecks));
+            if (currentDeckName) {
+                localStorage.setItem('myFlashcardProActiveDeck', currentDeckName);
+            }
         }
-        const termVal = document.getElementById('inTerm').value;
-        const defVal = document.getElementById('inDef').value;
 
-        if (!termVal || !defVal) return;
-
-        allDecks[currentDeckName].push({ t: termVal, d: defVal });
-        saveToStorage(); 
-
-        document.getElementById('inTerm').value = "";
-        document.getElementById('inDef').value = "";
-        index = allDecks[currentDeckName].length - 1;
-        updateUI();
-    }
-
-    function flip() { card.classList.toggle('is-flipped'); }
-
-    function next() {
-        if (!currentDeckName) return;
-        let deck = allDecks[currentDeckName];
-        if (index < deck.length - 1) { index++; updateUI(); }
-    }
-
-    function prev() {
-        if (index > 0) { index--; updateUI(); }
-    }
-
-    function saveToStorage() {
-        localStorage.setItem('myQuizletDeck', JSON.stringify(allDecks));
-    }
-
-    function clearDeck() {
-        if(confirm("Are you sure? This deletes everything!")) {
-            localStorage.removeItem('myQuizletDeck');
-            location.reload(); 
+        // Shuffle & Order Logic
+        function resetDeckOrder() {
+            if (!currentDeckName || !allDecks[currentDeckName]) {
+                activeOrder = [];
+                return;
+            }
+            const len = allDecks[currentDeckName].length;
+            activeOrder = Array.from({ length: len }, (_, i) => i);
+            if (isShuffled) {
+                for (let i = activeOrder.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [activeOrder[i], activeOrder[j]] = [activeOrder[j], activeOrder[i]];
+                }
+            }
         }
-    }
 
-    // Start the app
-    updateUI();
-</script>
+        function toggleShuffle() {
+            isShuffled = !isShuffled;
+            if (isShuffled) {
+                shuffleBtn.classList.add('text-indigo-600', 'bg-indigo-50');
+                showToast("Deck shuffled", "info");
+            } else {
+                shuffleBtn.classList.remove('text-indigo-600', 'bg-indigo-50');
+                showToast("Original order restored", "info");
+            }
+            resetDeckOrder();
+            index = 0;
+            updateUI();
+        }
+
+        // Card UI Rendering
+        function updateUI() {
+            renderDropdown();
+
+            // Make sure card is back to front side when updating
+            if (isFlipped) {
+                isFlipped = false;
+                cardElement.classList.remove('rotate-y-180');
+            }
+
+            if (!currentDeckName || !allDecks[currentDeckName] || allDecks[currentDeckName].length === 0) {
+                frontText.innerText = currentDeckName ? "This set is empty" : "No study sets available";
+                backText.innerText = currentDeckName ? "Add cards using the form below!" : "Create a new set to begin.";
+                counter.innerText = "0 / 0";
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+
+            const currentDeck = allDecks[currentDeckName];
+            const realIndex = activeOrder[index] !== undefined ? activeOrder[index] : index;
+            const currentCard = currentDeck[realIndex];
+
+            if (currentCard) {
+                frontText.innerText = currentCard.t;
+                backText.innerText = currentCard.d;
+                counter.innerText = `${index + 1} / ${currentDeck.length}`;
+            }
+
+            prevBtn.disabled = index === 0;
+            nextBtn.disabled = index >= currentDeck.length - 1;
+        }
+
+        function renderDropdown() {
+            deckSelect.innerHTML = "";
+            const keys = Object.keys(allDecks);
+
+            if (keys.length === 0) {
+                const opt = document.createElement('option');
+                opt.innerText = "-- No Sets --";
+                deckSelect.appendChild(opt);
+                return;
+            }
+
+            keys.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = name;
+                if (name === currentDeckName) opt.selected = true;
+                deckSelect.appendChild(opt);
+            });
+        }
+
+        // Dropdown Event Handler
+        deckSelect.onchange = (e) => {
+            currentDeckName = e.target.value;
+            index = 0;
+            resetDeckOrder();
+            saveStorage();
+            updateUI();
+        };
+
+        // Navigation & Interaction Functions
+        function flipCard() {
+            if (!currentDeckName || !allDecks[currentDeckName] || allDecks[currentDeckName].length === 0) return;
+            isFlipped = !isFlipped;
+            cardElement.classList.toggle('rotate-y-180', isFlipped);
+        }
+
+        function resetCardState() {
+            if (isFlipped) {
+                isFlipped = false;
+                cardElement.classList.remove('rotate-y-180');
+            }
+        }
+
+        function nextCard() {
+            if (!currentDeckName) return;
+            const deck = allDecks[currentDeckName];
+            if (index < deck.length - 1) {
+                index++;
+                updateUI();
+            }
+        }
+
+        function prevCard() {
+            if (index > 0) {
+                index--;
+                updateUI();
+            }
+        }
+
+        // Add New Card Handler
+        function addNewCard(e) {
+            e.preventDefault();
+            if (!currentDeckName) {
+                showToast("Please create or select a study set first!", "error");
+                return;
+            }
+
+            const termInput = document.getElementById('inTerm');
+            const defInput = document.getElementById('inDef');
+            const termVal = termInput.value.trim();
+            const defVal = defInput.value.trim();
+
+            if (!termVal || !defVal) return;
+
+            allDecks[currentDeckName].push({ t: termVal, d: defVal });
+            saveStorage();
+
+            termInput.value = "";
+            defInput.value = "";
+
+            resetDeckOrder();
+            // Move to the newly added card
+            index = allDecks[currentDeckName].length - 1;
+            updateUI();
+
+            showToast("Card added successfully!", "success");
+        }
+
+        // Delete Single Card
+        function deleteCurrentCard() {
+            if (!currentDeckName || !allDecks[currentDeckName] || allDecks[currentDeckName].length === 0) return;
+            
+            const realIndex = activeOrder[index];
+            allDecks[currentDeckName].splice(realIndex, 1);
+            saveStorage();
+
+            resetDeckOrder();
+            if (index >= allDecks[currentDeckName].length) {
+                index = Math.max(0, allDecks[currentDeckName].length - 1);
+            }
+            updateUI();
+            showToast("Card deleted", "info");
+        }
+
+        // Deck Modal Actions & Prompts
+        function openCreateSetModal() {
+            const promptModal = document.getElementById('promptModalOverlay');
+            const input = document.getElementById('promptInput');
+            input.value = "";
+            promptModal.classList.remove('hidden');
+            setTimeout(() => {
+                promptModal.classList.remove('opacity-0');
+                input.focus();
+            }, 10);
+        }
+
+        function closePromptModal() {
+            const promptModal = document.getElementById('promptModalOverlay');
+            promptModal.classList.add('opacity-0');
+            setTimeout(() => {
+                promptModal.classList.add('hidden');
+            }, 200);
+        }
+
+        document.getElementById('promptCancelBtn').onclick = closePromptModal;
+        document.getElementById('promptConfirmBtn').onclick = () => {
+            const input = document.getElementById('promptInput');
+            const setName = input.value.trim();
+            if (setName) {
+                if (allDecks[setName]) {
+                    showToast("A study set with this name already exists!", "error");
+                } else {
+                    allDecks[setName] = [];
+                    currentDeckName = setName;
+                    index = 0;
+                    resetDeckOrder();
+                    saveStorage();
+                    updateUI();
+                    closePromptModal();
+                    showToast(`Created set "${setName}"`, "success");
+                }
+            }
+        };
+
+        // Confirmation Modal Logic
+        function showConfirmationModal(title, message, onConfirm) {
+            const modal = document.getElementById('modalOverlay');
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            pendingModalAction = onConfirm;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modalOverlay');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                pendingModalAction = null;
+            }, 200);
+        }
+
+        document.getElementById('modalCancelBtn').onclick = closeModal;
+        document.getElementById('modalConfirmBtn').onclick = () => {
+            if (pendingModalAction) pendingModalAction();
+            closeModal();
+        };
+
+        function confirmDeleteCurrentDeck() {
+            if (!currentDeckName) return;
+            showConfirmationModal(
+                `Delete "${currentDeckName}"?`,
+                "Are you sure you want to delete this study set and all of its cards?",
+                () => {
+                    delete allDecks[currentDeckName];
+                    const keys = Object.keys(allDecks);
+                    currentDeckName = keys.length > 0 ? keys[0] : null;
+                    index = 0;
+                    resetDeckOrder();
+                    saveStorage();
+                    updateUI();
+                    showToast("Study set deleted", "info");
+                }
+            );
+        }
+
+        function confirmResetDefaults() {
+            showConfirmationModal(
+                "Reset Starter Decks?",
+                "This will restore default decks. Existing decks with same names will be overwritten.",
+                () => {
+                    allDecks = { ...allDecks, ...DEFAULT_DECKS };
+                    if (!currentDeckName) currentDeckName = Object.keys(allDecks)[0];
+                    index = 0;
+                    resetDeckOrder();
+                    saveStorage();
+                    updateUI();
+                    showToast("Default decks restored", "success");
+                }
+            );
+        }
+
+        function confirmClearAll() {
+            showConfirmationModal(
+                "Clear All Saved Data?",
+                "This will permanently delete all your custom study sets and cards.",
+                () => {
+                    localStorage.removeItem('myFlashcardProDecks');
+                    localStorage.removeItem('myFlashcardProActiveDeck');
+                    allDecks = {};
+                    currentDeckName = null;
+                    index = 0;
+                    resetDeckOrder();
+                    updateUI();
+                    showToast("All data cleared", "info");
+                }
+            );
+        }
+
+        // Keyboard Shortcuts
+        function setupKeyListeners() {
+            window.addEventListener('keydown', (e) => {
+                // Ignore key events if typing in form inputs or modals are active
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+                if (!document.getElementById('modalOverlay').classList.contains('hidden')) return;
+                if (!document.getElementById('promptModalOverlay').classList.contains('hidden')) return;
+
+                switch (e.code) {
+                    case 'Space':
+                    case 'ArrowUp':
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        flipCard();
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        e.preventDefault();
+                        prevCard();
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        e.preventDefault();
+                        nextCard();
+                        break;
+                }
+            });
+        }
+
+        // Custom Toast Notification System
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-slate-800';
+            const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-x-10', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-x-10', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
